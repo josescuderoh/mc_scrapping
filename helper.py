@@ -1,3 +1,5 @@
+# Imports
+from bs4 import BeautifulSoup
 import urllib
 import os
 import time
@@ -6,11 +8,13 @@ from selenium import webdriver
 import json
 
 def unzip(path_to_zip_file,directory_to_extract_to):
+    """Unzips the files using an origin and destination directory"""
     zip_ref = zipfile.ZipFile(path_to_zip_file, 'r')
     zip_ref.extractall(directory_to_extract_to)
     zip_ref.close()
 
 def download_file(download_url):
+    """Downloads a pdf document given a url"""
     response = urllib.request.urlopen(download_url)
     file = open("document.pdf", 'wb')
     file.write(response.read())
@@ -32,13 +36,13 @@ class Crawler:
         # Create profile for firefox
         self.fp = webdriver.FirefoxProfile()
         self.download_path = os.path.join(self.cur_dir, download_path)
-        #Select custom location
+        # Select custom location
         self.fp.set_preference('browser.download.folderList', 2)
-        #Do not show browser
+        # Do not show browser
         self.fp.set_preference('browser.download.manager.showWhenStarting', False)
-        #Add path for download
+        # Add path for download
         self.fp.set_preference('browser.download.dir', self.download_path)
-        #Disable dialog box
+        # Disable dialog box
         self.fp.set_preference("browser.helperApps.neverAsk.saveToDisk", self.mime_types)
         self.fp.set_preference("plugin.disable_full_page_plugin_for_types", self.mime_types)
         self.fp.set_preference("pdfjs.disabled", True)
@@ -50,7 +54,7 @@ class Crawler:
         self.browser.get(host)
 
     def get_file(self,file):
-        """This method downloads file by searching for a given link text and clicks it to download it"""
+        """Downloads file by searching for a given link text and clicks it to download it"""
         print("Downloading "+ file)
         # Define element
         element = self.browser.find_element_by_link_text(file)
@@ -111,3 +115,84 @@ def insertMonthlyPrices(conn, d_frame, folder_guide):
 
     return "Prices migration finished..."
 
+
+
+def collect_static_files():
+    """Function to download and extract raw pdf and csv files for new prices from
+    the fasecolda website and store these static files into local directory"""
+
+    # Root website
+    root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
+
+    # Urls to download documents and files
+    urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\Documentos",
+            "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
+
+    paths = {"docs": r"..\..\data\docs",
+             "files": r"..\..\data\files"}
+
+    # Extract fles for both urls
+    if urls.keys():
+        for key in urls.keys():
+            # Paste url
+            temp_url = root + urls[key]
+            # Parse html
+            if key == 'docs':
+                # Read and parse html content
+                temp_text = urllib.request.urlopen(temp_url).read()
+                temp_soup = BeautifulSoup(temp_text, 'html.parser')
+                # Get all pdf file names from html structure
+                files = [file.text for file in temp_soup.find_all('a') if file.text.endswith("pdf")]
+                # Import existing files
+                existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
+                # Check for missing files
+                missing = sorted(set(files) - set(existing))
+                # Update if there are missing files
+                if missing:
+                    # Create crawler
+                    docs_crawler = Crawler()
+                    docs_crawler.create_profile(paths[key])
+                    # Open browser
+                    docs_crawler.open_host(temp_url)
+                    # Iterate over files and download document
+                    for file in missing:
+                        # Get current file
+                        docs_crawler.get_file(file)
+                    # Close browser
+                    docs_crawler.close_host()
+            elif key == "files":
+                # Extract and parse the html content
+                temp_text = urllib.request.urlopen(temp_url).read()
+                temp_soup = BeautifulSoup(temp_text, 'html.parser')
+                # Get all file names from html structure starting from the 135
+                folders = [folder.text for folder in temp_soup.find_all('a') if folder.text >= '135'][1:]
+                # Import existing files
+                existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
+                # Check for missing files
+                missing = sorted(list(set(folders) - set(existing)))
+                # Iterate over missing folders
+                for folder in missing:
+                    # Get the url of the folder
+                    folder_url = temp_url + "\\" + folder
+                    # Create crawler
+                    files_crawler = Crawler()
+                    files_crawler.create_profile(paths[key] + "\\" + folder)
+                    # Open browser
+                    files_crawler.open_host(folder_url)
+                    # Get codes csv file
+                    file_codes = "GuiaCodigos_CSV_" + folder[0:3] + ".zip"
+                    files_crawler.get_file(file_codes)
+                    # Unzip the file
+                    unzip(paths[key] + "\\" + folder + "\\" + file_codes,
+                          paths[key] + "\\" + folder)
+                    # Delete the zip from folder
+                    os.remove(paths[key] + "\\" + folder + "\\" + file_codes)
+                    # Get values csv file
+                    file_values = "GuiaValores_CSV_" + folder[0:3] + ".zip"
+                    files_crawler.get_file(file_values)
+                    # Unzip the file
+                    unzip(paths[key] + "\\" + folder + "\\" + file_values, paths[key] + "\\" + folder)
+                    # Delet the zip from folder
+                    os.remove(paths[key] + "\\" + folder + "\\" + file_values)
+                    # Close browser
+                    files_crawler.close_host()
