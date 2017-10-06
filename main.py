@@ -13,74 +13,78 @@ root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
 urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\Documentos",
         "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
 
-paths = {"docs": r"..\data\docs",
-         "files": r"..\data\files"}
+paths = {"docs": r"..\..\data\docs",
+         "files": r"..\..\data\files"}
 
-#Extract fields for both urls
 
+# Extract fles for both urls
 for key in urls.keys():
-    #Paste url
+    # Paste url
     temp_url = root+urls[key]
-    #Parse html
+    # Parse html
     if key == 'docs':
+        # Read and parse html content
         temp_text = urllib.request.urlopen(temp_url).read()
         temp_soup = BeautifulSoup(temp_text,'html.parser')
-        # Get all file names from html structure
+        # Get all pdf file names from html structure
         files = [file.text for file in temp_soup.find_all('a') if file.text.endswith("pdf")]
-        #Import existing files
-        existing = os.listdir(os.getcwd()+paths[key])
-        #Check for missing files
+        # Import existing files
+        existing = os.listdir(os.path.join(os.getcwd(),paths[key]))
+        # Check for missing files
         missing = sorted(set(files) - set(existing))
-        #Update if there are missing files
+        # Update if there are missing files
         if missing:
-            #Create crawler
+            # Create crawler
             docs_crawler = Crawler()
             docs_crawler.create_profile(paths[key])
-            #Open browser
+            # Open browser
             docs_crawler.open_host(temp_url)
             # Iterate over files and download document
             for file in missing:
                 #Get current file
                 docs_crawler.get_file(file)
-            #Close browser
+            # Close browser
             docs_crawler.close_host()
     elif key == "files":
+        # Extract and parse the html content
         temp_text = urllib.request.urlopen(temp_url).read()
         temp_soup = BeautifulSoup(temp_text,'html.parser')
         # Get all file names from html structure starting from the 135
         folders = [folder.text for folder in temp_soup.find_all('a') if folder.text >= '135'][1:]
-        #Import existing files
-        existing = os.listdir(os.getcwd()+paths[key])
-        #Check for missing files
+        # Import existing files
+        existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
+        # Check for missing files
         missing = sorted(list(set(folders) - set(existing)))
-        #Iterate over missing folders
+        # Iterate over missing folders
         for folder in missing:
-            #Get the url of the folder
+            # Get the url of the folder
             folder_url = temp_url + "\\" + folder
-            #Create crawler
+            # Create crawler
             files_crawler = Crawler()
             files_crawler.create_profile(paths[key]+"\\"+folder)
-            #Open browser
+            # Open browser
             files_crawler.open_host(folder_url)
             # Get codes csv file
             file_codes = "GuiaCodigos_CSV_"+folder[0:3]+".zip"
             files_crawler.get_file(file_codes)
-            #Unzip the file
-            unzip((paths[key]+"\\"+folder+"\\"+file_codes)[1:],
-                  (paths[key]+"\\"+folder)[1:])
-            #Delete the zip file
-            os.remove((paths[key]+"\\"+folder+"\\"+file_codes)[1:])
+            # Unzip the file
+            unzip(paths[key]+"\\"+folder+"\\"+file_codes,
+                  paths[key]+"\\"+folder)
+            # Delete the zip file
+            os.remove(paths[key]+"\\"+folder+"\\"+file_codes)
             # Get values csv file
             file_values = "GuiaValores_CSV_" + folder[0:3] + ".zip"
             files_crawler.get_file(file_values)
-            unzip((paths[key]+"\\"+folder+"\\"+file_values)[1:],
-                  (paths[key]+"\\"+folder)[1:])
-            os.remove((paths[key] + "\\" + folder + "\\" + file_values)[1:])
+            # Unzip the file
+            unzip(paths[key]+"\\"+folder+"\\"+file_values, paths[key]+"\\"+folder)
+            # Remove the zip
+            os.remove(paths[key] + "\\" + folder + "\\" + file_values)
             #Close browser
             files_crawler.close_host()
 
 
 ########## Data for including month ##########
+
 #This months are mapped to a calendar one month behind
 month_map = {'Enero':1,
               'Febrero':2,

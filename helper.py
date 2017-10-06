@@ -31,7 +31,7 @@ class Crawler:
         """This method creates one profile for the browser in order to download the files"""
         # Create profile for firefox
         self.fp = webdriver.FirefoxProfile()
-        self.download_path = self.cur_dir + download_path
+        self.download_path = os.path.join(self.cur_dir, download_path)
         #Select custom location
         self.fp.set_preference('browser.download.folderList', 2)
         #Do not show browser
