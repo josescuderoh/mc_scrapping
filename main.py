@@ -1,7 +1,6 @@
-
 # Imports
-from bs4 import BeautifulSoup
 from helper import *
+from bs4 import BeautifulSoup
 import pandas as pd
 import psycopg2
 from collections import defaultdict
@@ -14,8 +13,8 @@ root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
 urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\Documentos",
         "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
 
-paths = {"docs": r"\data\docs",
-         "files": r"\data\files"}
+paths = {"docs": r"..\data\docs",
+         "files": r"..\data\files"}
 
 #Extract fields for both urls
 

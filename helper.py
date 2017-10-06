@@ -18,15 +18,18 @@ def download_file(download_url):
     print("Completed")
 
 class Crawler:
-    """This class creates a Crawler for the fasecolda website and downloads into a local path specific documents from the website"""
+    """This class creates a Crawler for the fasecolda website and downloads into a
+    local path specific documents from the website"""
     def __init__(self):
         """Initialization method"""
-        self.mime_types = "application/pdf,application/vnd.adobe.xfdf,application/vnd.fdf,application/vnd.adobe.xdp+xml,application/octet-stream"
+        self.mime_types = "application/pdf,application/vnd.adobe.xfdf," \
+                          "application/vnd.fdf,application/vnd.adobe.xdp+xml," \
+                          "application/octet-stream"
         self.cur_dir = os.getcwd()
 
     def create_profile(self,download_path):
         """This method creates one profile for the browser in order to download the files"""
-        #Create profile for firefox
+        # Create profile for firefox
         self.fp = webdriver.FirefoxProfile()
         self.download_path = self.cur_dir + download_path
         #Select custom location
