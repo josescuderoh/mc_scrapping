@@ -116,20 +116,9 @@ def insertMonthlyPrices(conn, d_frame, folder_guide):
     return "Prices migration finished..."
 
 
-
-def collect_static_files():
+def collect_static_files(root, urls, paths):
     """Function to download and extract raw pdf and csv files for new prices from
     the fasecolda website and store these static files into local directory"""
-
-    # Root website
-    root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
-
-    # Urls to download documents and files
-    urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\Documentos",
-            "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
-
-    paths = {"docs": r"..\..\data\docs",
-             "files": r"..\..\data\files"}
 
     # Extract fles for both urls
     if urls.keys():

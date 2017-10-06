@@ -6,7 +6,19 @@ from collections import defaultdict
 import numpy as np
 
 # Function call to download and store raw static files
-collect_static_files()
+
+# Root website
+root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
+
+# Urls to download documents and files
+urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\Documentos",
+        "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
+
+paths = {"docs": r"..\..\data\docs",
+         "files": r"..\..\data\files"}
+
+collect_static_files(root, urls, paths)
+
 
 # Data required for month information. This months are mapped to a calendar one month behind
 month_map = {'Enero':1,
@@ -35,15 +47,22 @@ month_sold_map = {'Enero':12,
               'Noviembre':10,
               'Diciembre':11}
 
-########## Set filters ##########
+# Set filters
+
 # Include only following classes
 classes = ['AUTOMOVIL','CAMIONETA', 'CAMIONETA PASAJ.','CAMPERO']
-#Filter by service
-id_service = 1
-#Exclude following makes
-manuf = ['ALEKO','AROCARPATI']
 
-######### Read table and import to database #########
+# Filter by service
+id_service = 1
+
+#Exclude following makes
+include_manuf = ["SUZUKI","KIA","HYUNDAI","MITSUBISHI","BMW","HONDA","MAZDA",
+"RENAULT","NISSAN","TOYOTA","FORD","CHEVROLET","MERCEDES BENZ","SUBARU","SSANGYONG",
+"LAND ROVER","DODGE","JEEP","SKODA","AUDI","VOLKSWAGEN","VOLVO","CHRYSLER","CADILLAC",
+"CITROEN","DAEWOO","DAIHATSU","FIAT","ISUZU","JAGUAR","LADA","MINI",
+"MG","PEUGEOT","PORSCHE","CHANA","CHERY","JAC","DFSK/DFM/DFZL","JMC",
+"FOTON","HUMMER","LIFAN","TMD","ROVER","MASERATI","FERRARI","CHANGAN"]
+# exclude_manuf = ['ALEKO','AROCARPATI']
 
 #Connect to database
 try:
@@ -52,7 +71,7 @@ except:
     print("Unable to connect to the database")
 
 #Read existing folders
-folders_path = os.getcwd()+paths['files']
+folders_path = os.path.join(os.getcwd(), paths['files'])
 folders = sorted(os.listdir(path= folders_path))
 
 #Iterate over folders
