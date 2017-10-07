@@ -20,7 +20,7 @@ paths = {"docs": r"..\..\data\docs",
 collect_static_files(root, urls, paths)
 
 
-# Data required for month information. This months are mapped to a calendar one month behind
+# Data required for month information. These months are mapped to a calendar one month behind
 month_map = {'Enero':1,
               'Febrero':2,
               'Marzo':3,
@@ -55,7 +55,7 @@ classes = ['AUTOMOVIL','CAMIONETA', 'CAMIONETA PASAJ.','CAMPERO']
 # Filter by service
 id_service = 1
 
-#Exclude following makes
+# Exclude following makes
 include_manuf = ["SUZUKI","KIA","HYUNDAI","MITSUBISHI","BMW","HONDA","MAZDA",
 "RENAULT","NISSAN","TOYOTA","FORD","CHEVROLET","MERCEDES BENZ","SUBARU","SSANGYONG",
 "LAND ROVER","DODGE","JEEP","SKODA","AUDI","VOLKSWAGEN","VOLVO","CHRYSLER","CADILLAC",
@@ -64,13 +64,13 @@ include_manuf = ["SUZUKI","KIA","HYUNDAI","MITSUBISHI","BMW","HONDA","MAZDA",
 "FOTON","HUMMER","LIFAN","TMD","ROVER","MASERATI","FERRARI","CHANGAN"]
 # exclude_manuf = ['ALEKO','AROCARPATI']
 
-#Connect to database
+# Connect to database
 try:
-    conn = psycopg2.connect("dbname='matchcars' user='jescudero' host='localhost' password='654321+*'")
+    conn = psycopg2.connect("dbname='mc_db' user='jescudero' host='localhost' password='654321+*'")
 except:
     print("Unable to connect to the database")
 
-#Read existing folders
+# Read existing folders
 folders_path = os.path.join(os.getcwd(), paths['files'])
 folders = sorted(os.listdir(path= folders_path))
 
@@ -79,49 +79,45 @@ for folder in folders:
     #Temporary path
     temp_path = os.path.join(folders_path,folder)
     #Extract temporary information from folder
-    folder_dic = {'reference': int(folder.split(sep="_")[0]),
+    folder_dic = {
+        # 'reference': int(folder.split(sep="_")[0]),
                   'month_guide': month_map.get(folder.split(sep="_")[1]),
                   'month_sold': month_sold_map.get(folder.split(sep="_")[1]),
                   'year_guide': int(folder.split(sep="_")[2])}
     #List files in folder
     temp_files = os.listdir(temp_path)
     #Read required columns of code file (see new_sql)
-    cols = [0,1,2,3,5,6,7,8,9,12,13,14,15,16,17,19,20,23,24,25]
-    names = ['novedad_new', 'make_new', 'clase_new', 'id_fasecolda', 'ref1_new',
-    'ref2_new','ref3_new','peso_new','IdServicio','importado_new','power_new','gearbox',
-    'engine_cap', 'nacionalidad_new', 'pasajeros_new', 'doors', 'has_ac', 'fuel_system',
-    'torque', 'um_new']
+    cols = [0,1,2,3,9,22,25]
+    names = ['novedad', 'make', 'clase', 'id_fasecolda', 'id_servicio', 'estado','um']
     #Read codes csv
     iter_codes = pd.read_csv(os.path.join(temp_path,temp_files[0]),
                               header=0,sep=",", usecols=cols, iterator=True, chunksize=1000,
-                        dtype={'id_fasecolda':str, 'um_new':str, 'has_ac':str, 'importado_new': str},
-                             names=names)
-    codes = pd.concat([chunk[(chunk.IdServicio == id_service) &
-                             (~chunk.make_new.isin(manuf)) &
-                             (chunk.clase_new.isin(classes))] for chunk in iter_codes])
+                        dtype={'id_fasecolda':str, 'um':str}, names=names)
+    codes = pd.concat([chunk[(chunk.id_servicio== id_service) &
+                             (chunk.make.isin(include_manuf)) &
+                             (chunk.clase.isin(classes))] for chunk in iter_codes])
     #Select relevant codes
-    codes = codes.drop(labels='IdServicio', axis=1)
-    #Send to DB
-    insertCars(conn,codes)
+    codes = codes.drop(labels='id_servicio', axis=1)
 
     #Read required registers of values files
-    names = ['id_fasecolda', 'year_model', 'price']
+    names = ['id_fasecolda', 'model_year', 'price']
     iter_prices = pd.read_csv(os.path.join(temp_path,temp_files[1]),
                                iterator=True, chunksize=1000, header=0,sep=",",
                            dtype={'id_fasecolda': 'str'}, names = names)
     #Check for month to select model
     if folder_dic['month_guide'] > 7:
-        prices = pd.concat([chunk[(chunk.year_model > folder_dic['year_guide']) &
+        prices = pd.concat([chunk[(chunk.model_year > folder_dic['year_guide']) &
                               (chunk.id_fasecolda.isin(codes.id_fasecolda))] for chunk in iter_prices])
     else:
-        prices= pd.concat([chunk[(chunk.year_model == folder_dic['year_guide']) &
+        prices= pd.concat([chunk[(chunk.model_year == folder_dic['year_guide']) &
                               (chunk.id_fasecolda.isin(codes.id_fasecolda))] for chunk in iter_prices])
     #Select relevant codes
-    folder_dic['year_model'] = prices.year_model.values.tolist()[0]
-    prices = prices.drop(labels='year_model', axis=1)
-    prices['reference'] = folder_dic['reference']
+    folder_dic['model_year'] = prices.model_year.values.tolist()[0]
+    prices = prices.drop(labels='model_year', axis=1)
+    # prices['reference'] = folder_dic['reference']
     #Send to DB
     insertMonthlyPrices(conn, prices, folder_dic)
+    insertCars(conn,codes)
 
     #Report
     print("Guide %(reference)s for month %(month_guide)s of %(year_guide)s was included" % folder_dic)
