@@ -71,6 +71,7 @@ class Crawler:
         print("Browser closed")
 
 def insertGuide(conn, dict_guide):
+    """This method inserts guide information into the database"""
     #Create cursor
     temp_cursor = conn.cursor()
     #Create sql string
@@ -79,34 +80,34 @@ def insertGuide(conn, dict_guide):
     #Send to database
     temp_cursor.execute(sql_str, dict_guide)
     conn.commit()
-
     return "Guide migration finished."
 
-def insertPriceVariations(conn, d_frame, folder_guide):
-    #Create cursor
-    temp_cursor = conn.cursor()
-    #Insert guide
-    sql_guides = """
-    INSERT INTO guides("id_guide","year_guide","month_guide","year_model","month_sold",date_added)
-    VALUES (%(reference)s, %(year_guide)s, %(month_guide)s, %(year_model)s, %(month_sold)s, (select NOW()));"""
-    #Send to database
-    temp_cursor.execute(sql_guides, folder_guide)
-    conn.commit()
 
+def insertPriceVariations(conn, d_frame, dict_guide):
+    """Inserts prices into price_variations in order to update information about new prices."""
+    # Create cursor
+    temp_cursor = conn.cursor()
+    # Obtain  existing cars in database
+    sql_str = """select id from cars where id_fasecolda in {}"""
+    temp_cursor.execute(sql_str.format(tuple(d_frame['id_fasecolda'])))
+    valid_ids = [tup_id[0] for tup_id in temp_cursor.fetchall()]
+    # Create list of dictionaries
+    yearly_prices  = []
+    for id in valid_ids:
+        yearly_prices.append({'car_id': id, 'year_model': dict_guide['model_year']})
     #Insert prices
-    sql_str = """
-    INSERT INTO monthly_prices("id_fasecolda", "price", "id_guide", "date_added")
-    VALUES (%(id_fasecolda)s, %(price)s, %(reference)s, (select NOW()))
-    on conflict do nothing;"""
+    sql_str = """insert into yearly_prices (car_id, year_model, created_at, updated_at)
+    values (%(car_id)s, %(year_model)s, (select NOW()), (select NOW()))"""
+    #Send to database
+    # temp_cursor.executemany(sql_str, dict_list)
+    # conn.commit()
+    return "Prices migration finished."
+
+
     #Create list of dictionaries
     dict_list = []
     for i in range(len(d_frame)):
         dict_list.append(json.loads(d_frame.iloc[i].to_json()))
-    #Send to database
-    temp_cursor.executemany(sql_str, dict_list)
-    conn.commit()
-
-    return "Prices migration finished..."
 
 
 def collect_static_files(root, urls, paths):
@@ -114,76 +115,71 @@ def collect_static_files(root, urls, paths):
     the fasecolda website and store these static files into local directory"""
 
     # Extract fles for both urls
-    if urls.keys():
-        try:
-            for key in urls.keys():
-                # Paste url
-                temp_url = root + urls[key]
-                # Parse html
-                if key == 'docs':
-                    # Read and parse html content
-                    temp_text = urllib.request.urlopen(temp_url).read()
-                    temp_soup = BeautifulSoup(temp_text, 'html.parser')
-                    # Get all pdf file names from html structure
-                    files = [file.text for file in temp_soup.find_all('a') if file.text.endswith("pdf")]
-                    # Import existing files
-                    existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
-                    # Check for missing files
-                    missing = sorted(set(files) - set(existing))
-                    # Update if there are missing files
-                    if missing:
-                        # Create crawler
-                        docs_crawler = Crawler()
-                        docs_crawler.create_profile(paths[key])
-                        # Open browser
-                        docs_crawler.open_host(temp_url)
-                        # Iterate over files and download document
-                        for file in missing:
-                            # Get current file
-                            docs_crawler.get_file(file)
-                        # Close browser
-                        docs_crawler.close_host()
-                elif key == "files":
-                    # Extract and parse the html content
-                    temp_text = urllib.request.urlopen(temp_url).read()
-                    temp_soup = BeautifulSoup(temp_text, 'html.parser')
-                    # Get all file names from html structure starting from the 135
-                    folders = [folder.text for folder in temp_soup.find_all('a') if folder.text >= '135'][1:]
-                    # Import existing files
-                    existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
-                    # Check for missing files
-                    missing = sorted(list(set(folders) - set(existing)))
-                    # Iterate over missing folders
-                    for folder in missing:
-                        # Get the url of the folder
-                        folder_url = temp_url + "\\" + folder
-                        # Create crawler
-                        files_crawler = Crawler()
-                        files_crawler.create_profile(paths[key] + "\\" + folder)
-                        # Open browser
-                        files_crawler.open_host(folder_url)
-                        # Get codes csv file
-                        file_codes = "GuiaCodigos_CSV_" + folder[0:3] + ".zip"
-                        files_crawler.get_file(file_codes)
-                        # Unzip the file
-                        unzip(paths[key] + "\\" + folder + "\\" + file_codes,
-                              paths[key] + "\\" + folder)
-                        # Delete the zip from folder
-                        os.remove(paths[key] + "\\" + folder + "\\" + file_codes)
-                        # Get values csv file
-                        file_values = "GuiaValores_CSV_" + folder[0:3] + ".zip"
-                        files_crawler.get_file(file_values)
-                        # Unzip the file
-                        unzip(paths[key] + "\\" + folder + "\\" + file_values, paths[key] + "\\" + folder)
-                        # Delet the zip from folder
-                        os.remove(paths[key] + "\\" + folder + "\\" + file_values)
-                        # Close browser
-                        files_crawler.close_host()
-                ""
-                print("Databases are up to date now.")
-        except:
-            print("An error was encountered.")
-    else:
-        print("Databases are already up to date.")
-
+    try:
+        for key in urls.keys():
+            # Paste url
+            temp_url = root + urls[key]
+            # Parse html
+            if key == 'docs':
+                # Read and parse html content
+                temp_text = urllib.request.urlopen(temp_url).read()
+                temp_soup = BeautifulSoup(temp_text, 'html.parser')
+                # Get all pdf file names from html structure
+                files = [file.text for file in temp_soup.find_all('a') if file.text.endswith("pdf")]
+                # Import existing files
+                existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
+                # Check for missing files
+                missing = sorted(set(files) - set(existing))
+                # Update if there are missing files
+                if missing:
+                    # Create crawler
+                    docs_crawler = Crawler()
+                    docs_crawler.create_profile(paths[key])
+                    # Open browser
+                    docs_crawler.open_host(temp_url)
+                    # Iterate over files and download document
+                    for file in missing:
+                        # Get current file
+                        docs_crawler.get_file(file)
+                    # Close browser
+                    docs_crawler.close_host()
+            elif key == "files":
+                # Extract and parse the html content
+                temp_text = urllib.request.urlopen(temp_url).read()
+                temp_soup = BeautifulSoup(temp_text, 'html.parser')
+                # Get all file names from html structure starting from the 135
+                folders = [folder.text for folder in temp_soup.find_all('a') if folder.text >= '135'][1:]
+                # Import existing files
+                existing = os.listdir(os.path.join(os.getcwd(), paths[key]))
+                # Check for missing files
+                missing = sorted(list(set(folders) - set(existing)))
+                # Iterate over missing folders
+                for folder in missing:
+                    # Get the url of the folder
+                    folder_url = temp_url + "\\" + folder
+                    # Create crawler
+                    files_crawler = Crawler()
+                    files_crawler.create_profile(paths[key] + "\\" + folder)
+                    # Open browser
+                    files_crawler.open_host(folder_url)
+                    # Get codes csv file
+                    file_codes = "GuiaCodigos_TxtPipe_" + folder[0:3] + ".zip"
+                    files_crawler.get_file(file_codes)
+                    # Unzip the file
+                    unzip(paths[key] + "\\" + folder + "\\" + file_codes,
+                          paths[key] + "\\" + folder)
+                    # Delete the zip from folder
+                    os.remove(paths[key] + "\\" + folder + "\\" + file_codes)
+                    # Get values csv file
+                    file_values = "GuiaValores_TxtPipe_" + folder[0:3] + ".zip"
+                    files_crawler.get_file(file_values)
+                    # Unzip the file
+                    unzip(paths[key] + "\\" + folder + "\\" + file_values, paths[key] + "\\" + folder)
+                    # Delet the zip from folder
+                    os.remove(paths[key] + "\\" + folder + "\\" + file_values)
+                    # Close browser
+                    files_crawler.close_host()
+        print("Databases are up to date now.")
+    except:
+        return("An error was encountered.")
 

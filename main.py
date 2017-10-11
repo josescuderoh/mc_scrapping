@@ -80,7 +80,7 @@ for folder in folders:
     temp_path = os.path.join(folders_path,folder)
     #Extract temporary information from folder
     folder_dic = {
-        # 'reference': int(folder.split(sep="_")[0]),
+                  'reference': int(folder.split(sep="_")[0]),
                   'month_guide': month_map.get(folder.split(sep="_")[1]),
                   'month_sold': month_sold_map.get(folder.split(sep="_")[1]),
                   'year_guide': int(folder.split(sep="_")[2])}
@@ -90,9 +90,9 @@ for folder in folders:
     cols = [0,1,2,3,9,22,25]
     names = ['novedad', 'make', 'clase', 'id_fasecolda', 'id_servicio', 'estado','um']
     #Read codes csv
-    iter_codes = pd.read_csv(os.path.join(temp_path,temp_files[0]),
-                              header=0,sep=",", usecols=cols, iterator=True, chunksize=1000,
-                        dtype={'id_fasecolda':str, 'um':str}, names=names)
+    iter_codes = pd.read_table(os.path.join(temp_path,temp_files[0]),
+                              header=0,sep="|", usecols=cols, iterator=True, chunksize=1000,
+                        dtype={'id_fasecolda':str, 'um':str, 'id_servicio': int}, names=names)
     codes = pd.concat([chunk[(chunk.id_servicio== id_service) &
                              (chunk.make.isin(include_manuf)) &
                              (chunk.clase.isin(classes))] for chunk in iter_codes])
@@ -111,13 +111,14 @@ for folder in folders:
     else:
         prices= pd.concat([chunk[(chunk.model_year == folder_dic['year_guide']) &
                               (chunk.id_fasecolda.isin(codes.id_fasecolda))] for chunk in iter_prices])
+
     #Select relevant codes
     folder_dic['model_year'] = prices.model_year.values.tolist()[0]
     prices = prices.drop(labels='model_year', axis=1)
-    # prices['reference'] = folder_dic['reference']
+
     #Send to DB
-    insertMonthlyPrices(conn, prices, folder_dic)
-    insertCars(conn,codes)
+    insertGuide(conn, folder_dic)
+    insertPriceVariations(conn,codes, folder_dic)
 
     #Report
     print("Guide %(reference)s for month %(month_guide)s of %(year_guide)s was included" % folder_dic)
