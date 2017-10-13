@@ -6,6 +6,7 @@ import time
 import zipfile
 from selenium import webdriver
 import json
+import pandas as pd
 
 def unzip(path_to_zip_file,directory_to_extract_to):
     """Unzips the files using an origin and destination directory"""
@@ -182,4 +183,38 @@ def collect_static_files(root, urls, paths):
         print("Databases are up to date now.")
     except:
         return("An error was encountered.")
+
+
+def select_models(folder_dic, codes, file_path):
+    #Field names
+    names = ['id_fasecolda', 'model_year', 'price']
+    # Read all ids from file
+    all_prices = pd.read_table(file_path, header=0,sep="|", index_col=False,
+                           dtype={'id_fasecolda': 'str'}, names = names)
+    # Get latest model_year
+    max_model = max(all_prices.model_year)
+    #Add right new prices to codes
+    codes = codes.set_index(['id_fasecolda'])
+    codes['price'] = 0
+    codes['model_year'] = 0
+    #Read from prices dataframe
+    if max_model == folder_dic['year_guide']:
+        for id in codes.index:
+            if codes.loc[id].um:
+                codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
+                                                            (all_prices['model_year'] == max_model)].item())
+                codes.set_value(id, 'model_year', max_model)
+    else:
+        for id in codes.index:
+            if codes.loc[id].um:
+                codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
+                                                            (all_prices['model_year'] == max_model)].item())
+                codes.set_value(id, 'model_year', max_model)
+            else:
+                codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
+                                                            (all_prices['model_year'] == folder_dic['year_guide'])].item())
+                codes.set_value(id, 'model_year', folder_dic['year_guide'])
+    #Return df
+    prices_df = codes.loc[:,['model_year','price']][codes['price']>0]
+    return prices_df.reset_index(inplace=True)
 

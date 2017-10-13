@@ -1,9 +1,7 @@
 # Imports
 from helper import *
-import pandas as pd
 import psycopg2
 from collections import defaultdict
-import numpy as np
 
 # Function call to download and store raw static files
 
@@ -62,7 +60,6 @@ include_manuf = ["SUZUKI","KIA","HYUNDAI","MITSUBISHI","BMW","HONDA","MAZDA",
 "CITROEN","DAEWOO","DAIHATSU","FIAT","ISUZU","JAGUAR","LADA","MINI",
 "MG","PEUGEOT","PORSCHE","CHANA","CHERY","JAC","DFSK/DFM/DFZL","JMC",
 "FOTON","HUMMER","LIFAN","TMD","ROVER","MASERATI","FERRARI","CHANGAN"]
-# exclude_manuf = ['ALEKO','AROCARPATI']
 
 # Connect to database
 try:
@@ -92,29 +89,16 @@ for folder in folders:
     #Read codes csv
     iter_codes = pd.read_table(os.path.join(temp_path,temp_files[0]),
                               header=0,sep="|", usecols=cols, iterator=True, chunksize=1000,
-                        dtype={'id_fasecolda':str, 'um':str, 'id_servicio': int}, names=names)
-    codes = pd.concat([chunk[(chunk.id_servicio== id_service) &
+                        dtype={'id_fasecolda':str, 'um':bool, 'id_servicio': int}, names=names)
+    codes = pd.concat([chunk[(chunk.id_servicio == id_service) &
                              (chunk.make.isin(include_manuf)) &
                              (chunk.clase.isin(classes))] for chunk in iter_codes])
     #Select relevant codes
     codes = codes.drop(labels='id_servicio', axis=1)
 
-    #Read required registers of values files
-    names = ['id_fasecolda', 'model_year', 'price']
-    iter_prices = pd.read_csv(os.path.join(temp_path,temp_files[1]),
-                               iterator=True, chunksize=1000, header=0,sep=",",
-                           dtype={'id_fasecolda': 'str'}, names = names)
-    #Check for month to select model
-    if folder_dic['month_guide'] > 7:
-        prices = pd.concat([chunk[(chunk.model_year > folder_dic['year_guide']) &
-                              (chunk.id_fasecolda.isin(codes.id_fasecolda))] for chunk in iter_prices])
-    else:
-        prices= pd.concat([chunk[(chunk.model_year == folder_dic['year_guide']) &
-                              (chunk.id_fasecolda.isin(codes.id_fasecolda))] for chunk in iter_prices])
-
-    #Select relevant codes
-    folder_dic['model_year'] = prices.model_year.values.tolist()[0]
-    prices = prices.drop(labels='model_year', axis=1)
+    #Select right model year and price for each id
+    file_path = os.path.join(temp_path,temp_files[1])
+    prices_df = select_models(folder_dic, codes, file_path)
 
     #Send to DB
     insertGuide(conn, folder_dic)
