@@ -5,7 +5,6 @@ import os
 import time
 import zipfile
 from selenium import webdriver
-import json
 import pandas as pd
 
 def unzip(path_to_zip_file,directory_to_extract_to):
@@ -77,10 +76,10 @@ def insertGuide(conn, dict_guide):
     temp_cursor = conn.cursor()
     #Create sql string
     sql_str = """INSERT INTO guides("year_guide", "month_guide", "month_sold", "created_at", "updated_at", "reference") 
-    VALUES (%(year_guide)s, %(month_guide)s, %(month_sold)s, (select NOW()), (select NOW()), %(reference)s)
-    on conflict (reference) do
-    update set
-        updated_at = excluded.updated_at;"""
+                VALUES (%(year_guide)s, %(month_guide)s, %(month_sold)s, (select NOW()), (select NOW()), %(reference)s)
+                on conflict (reference) do
+                update set
+                    updated_at = excluded.updated_at;"""
     #Send to database
     temp_cursor.execute(sql_str, dict_guide)
     conn.commit()
@@ -92,51 +91,70 @@ def get_variations_by_make(conn):
     temp_cursor = conn.cursor()
     #Query database
     sql_str = """select distinct makes.name, max_price_percentage, min_price_percentage, med_price_percentage, good_price_percentage, max_level, min_level from price_variations
-     join yearly_prices on yearly_prices.id = price_variations.yearly_price_id
-     join cars on yearly_prices.car_id = cars.id 
-     join models on models.id = cars.model_id 
-     join makes on makes.id = models.make_id;"""
+                 join yearly_prices on yearly_prices.id = price_variations.yearly_price_id
+                 join cars on yearly_prices.car_id = cars.id 
+                 join models on models.id = cars.model_id 
+                 join makes on makes.id = models.make_id;"""
     temp_cursor.execute(sql_str)
     price_variations = temp_cursor.fetchall()
     #Create data frame
-    price_variations_df = pd.DataFrame(price_variations,
+    variations_df = pd.DataFrame(price_variations,
                                        columns=["make", "max_price_percentage", "min_price_percentage",
                                                 "med_price_percentage", "good_price_percentage", "max_level",
                                                 "min_level"])
-    return price_variations_df
-
+    return variations_df.set_index(['make'])
 
 
 def insertPriceVariations(conn, d_frame, dict_guide):
     """Inserts prices into price_variations in order to update information about new prices."""
     # Create cursor
     temp_cursor = conn.cursor()
-
     #Get current variations by make
     variations_by_make = get_variations_by_make(conn)
-
-    # Obtain  existing cars in database
-    sql_str = """select id from cars where id_fasecolda in {}"""
-    temp_cursor.execute(sql_str.format(tuple(d_frame['id_fasecolda'])))
-    valid_ids = [tup_id[0] for tup_id in temp_cursor.fetchall()]
-
+    # Obtain existing cars in database
+    sql_str = """select id,id_fasecolda from cars where id_fasecolda in {}"""
+    temp_cursor.execute(sql_str.format(tuple(d_frame.index)))
+    valid_tuples = [tup_id for tup_id in temp_cursor.fetchall()]
     # Create list of dictionaries
     yearly_prices  = []
-    for id in valid_ids:
-        yearly_prices.append({'car_id': id, 'year_model': dict_guide['model_year']})
-    #Insert prices
+    for id,id_fasecolda in valid_tuples:
+        yearly_prices.append({'car_id': id, 'year_model': d_frame.loc[id_fasecolda].model_year.item()})
+    #Insert yearly prices
     sql_str = """insert into yearly_prices (car_id, year_model, created_at, updated_at)
-    values (%(car_id)s, %(year_model)s, (select NOW()), (select NOW()))"""
-    #Send to database
-    # temp_cursor.executemany(sql_str, dict_list)
-    # conn.commit()
-    return "Prices migration finished."
-
-
-    #Create list of dictionaries
+                 select %(car_id)s, %(year_model)s, (select NOW()), (select NOW())
+                 where not exists 
+                 (select id from yearly_prices where car_id = %(car_id)s and year_model=%(year_model)s);"""
+    #Send to yearly_prices
+    temp_cursor.executemany(sql_str, yearly_prices)
+    conn.commit()
+    # Create list of dictionaries with required information
     dict_list = []
-    for i in range(len(d_frame)):
-        dict_list.append(json.loads(d_frame.iloc[i].to_json()))
+    for car_id, id_fasecolda in valid_tuples:
+        temp_d_frame = d_frame.loc[id_fasecolda]
+        temp_variations = variations_by_make.loc[d_frame.loc[id_fasecolda].make]
+        temp_dict ={
+            'car_id': car_id,
+            'year_model': temp_d_frame.model_year.item(),
+            'market_price': temp_d_frame.price.item(),
+            'max_price_percentage': temp_variations.max_price_percentage.item(),
+            'min_price_percentage': temp_variations.min_price_percentage.item(),
+            'med_price_percentage': temp_variations.med_price_percentage.item(),
+            'good_price_percentage': temp_variations.good_price_percentage.item(),
+            'max_level': temp_variations.max_level.item(),
+            'min_level': temp_variations.min_level.item(),
+            'reference': dict_guide['reference'],
+        }
+        dict_list.append(temp_dict)
+    # Store yearly_prices ids in database
+    sql_str = """insert into price_variations (yearly_price_id, market_price, max_price_percentage, min_price_percentage, 
+                med_price_percentage, good_price_percentage, max_level, min_level, created_at, updated_at, id_guide_pk)
+                values ((select id from yearly_prices where car_id=%(car_id)s and year_model=%(year_model)s), %(market_price)s, 
+                %(max_price_percentage)s, %(min_price_percentage)s, %(med_price_percentage)s, %(good_price_percentage)s, 
+                %(max_level)s, %(min_level)s, (select now()), (select now()), 
+                (select id from guides where reference=%(reference)s));"""
+    temp_cursor.executemany(sql_str, dict_list)
+    conn.commit()
+    return "Changes for guide {} have been submitted. {} new prices.".format(dict_guide['reference'], len(dict_list))
 
 
 def collect_static_files(root, urls, paths):
@@ -243,6 +261,6 @@ def select_models(folder_dic, codes, file_path):
                                                             (all_prices['model_year'] == folder_dic['year_guide'])].item())
                 codes.set_value(id, 'model_year', folder_dic['year_guide'])
     #Return df
-    prices_df = codes.loc[:,['model_year','price']][codes['price']>0]
-    return prices_df.reset_index(inplace=True)
+    prices_df = codes.loc[:,['make', 'model_year','price']][codes['price']>0]
+    return prices_df
 
