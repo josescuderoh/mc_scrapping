@@ -76,22 +76,50 @@ def insertGuide(conn, dict_guide):
     #Create cursor
     temp_cursor = conn.cursor()
     #Create sql string
-    sql_str = """INSERT INTO guides("year_guide", "month_guide", "model_year", "month_sold", "created_at", "updated_at") 
-    VALUES (%(year_guide)s, %(month_guide)s, %(model_year)s, %(month_sold)s, (select NOW()), (select NOW()))"""
+    sql_str = """INSERT INTO guides("year_guide", "month_guide", "month_sold", "created_at", "updated_at", "reference") 
+    VALUES (%(year_guide)s, %(month_guide)s, %(month_sold)s, (select NOW()), (select NOW()), %(reference)s)
+    on conflict (reference) do
+    update set
+        updated_at = excluded.updated_at;"""
     #Send to database
     temp_cursor.execute(sql_str, dict_guide)
     conn.commit()
     return "Guide migration finished."
 
 
+def get_variations_by_make(conn):
+    # Create cursor
+    temp_cursor = conn.cursor()
+    #Query database
+    sql_str = """select distinct makes.name, max_price_percentage, min_price_percentage, med_price_percentage, good_price_percentage, max_level, min_level from price_variations
+     join yearly_prices on yearly_prices.id = price_variations.yearly_price_id
+     join cars on yearly_prices.car_id = cars.id 
+     join models on models.id = cars.model_id 
+     join makes on makes.id = models.make_id;"""
+    temp_cursor.execute(sql_str)
+    price_variations = temp_cursor.fetchall()
+    #Create data frame
+    price_variations_df = pd.DataFrame(price_variations,
+                                       columns=["make", "max_price_percentage", "min_price_percentage",
+                                                "med_price_percentage", "good_price_percentage", "max_level",
+                                                "min_level"])
+    return price_variations_df
+
+
+
 def insertPriceVariations(conn, d_frame, dict_guide):
     """Inserts prices into price_variations in order to update information about new prices."""
     # Create cursor
     temp_cursor = conn.cursor()
+
+    #Get current variations by make
+    variations_by_make = get_variations_by_make(conn)
+
     # Obtain  existing cars in database
     sql_str = """select id from cars where id_fasecolda in {}"""
     temp_cursor.execute(sql_str.format(tuple(d_frame['id_fasecolda'])))
     valid_ids = [tup_id[0] for tup_id in temp_cursor.fetchall()]
+
     # Create list of dictionaries
     yearly_prices  = []
     for id in valid_ids:

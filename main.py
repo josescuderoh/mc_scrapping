@@ -102,7 +102,7 @@ for folder in folders:
 
     #Send to DB
     insertGuide(conn, folder_dic)
-    insertPriceVariations(conn,codes, folder_dic)
+    insertPriceVariations(conn, prices_df, folder_dic)
 
     #Report
     print("Guide %(reference)s for month %(month_guide)s of %(year_guide)s was included" % folder_dic)
