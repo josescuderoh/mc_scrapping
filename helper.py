@@ -163,8 +163,8 @@ def insertPriceVariations(conn, d_frame, dict_guide):
     # Count changes and commit
     new_prices_count = temp_cursor.rowcount
     conn.commit()
-    print("{} new yearly prices and {} new price variations of {} registers sent.".format(new_prices_count,
-                                                                                          new_yearly_prices_count,
+    print("{} new yearly prices and {} new price variations of {} registers sent.".format(new_yearly_prices_count,
+                                                                                          new_prices_count,
                                                                                           len(dict_list)))
 
 
@@ -257,7 +257,9 @@ def select_models(folder_dic, codes, file_path):
     #Read from prices dataframe
     if max_model == folder_dic['year_guide']:
         for id in codes.index:
-            if codes.loc[id].um:
+            #if codes.loc[id].um: Not filtering by last model in those months
+            # Filtering by last price different than zero
+            if all_prices.price[(all_prices['id_fasecolda']==id) & (all_prices['model_year'] == max_model-1)].item() > 0:
                 codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
                                                             (all_prices['model_year'] == max_model)].item())
                 codes.set_value(id, 'model_year', max_model)

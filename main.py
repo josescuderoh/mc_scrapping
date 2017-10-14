@@ -71,41 +71,46 @@ except:
 folders_path = os.path.join(os.getcwd(), paths['files'])
 folders = sorted(os.listdir(path= folders_path))
 
-#Iterate over folders
+# Iterate over folders
 for folder in folders:
-    #Temporary path
+    # Temporary path
     temp_path = os.path.join(folders_path,folder)
-    #Extract temporary information from folder
+    # Extract temporary information from folder
     folder_dic = {
                   'reference': int(folder.split(sep="_")[0]),
                   'month_guide': month_map.get(folder.split(sep="_")[1]),
                   'month_sold': month_sold_map.get(folder.split(sep="_")[1]),
                   'year_guide': int(folder.split(sep="_")[2])}
-    #List files in folder
+    print("--------------------------------")
+    print("Started processing guide %(reference)s" % folder_dic)
+
+    # List files in folder
     temp_files = os.listdir(temp_path)
-    #Read required columns of code file (see new_sql)
+    # Read required columns of code file (see new_sql)
     cols = [0,1,2,3,9,22,25]
     names = ['novedad', 'make', 'clase', 'id_fasecolda', 'id_servicio', 'estado','um']
-    #Read codes csv
+    # Read codes csv
     iter_codes = pd.read_table(os.path.join(temp_path,temp_files[0]),
                               header=0,sep="|", usecols=cols, iterator=True, chunksize=1000,
                         dtype={'id_fasecolda':str, 'um':bool, 'id_servicio': int}, names=names)
     codes = pd.concat([chunk[(chunk.id_servicio == id_service) &
                              (chunk.make.isin(include_manuf)) &
                              (chunk.clase.isin(classes))] for chunk in iter_codes])
-    #Select relevant codes
+    # Select relevant codes
     codes = codes.drop(labels='id_servicio', axis=1)
 
-    #Select right model year and price for each id
+    # Select right model year and price for each id
     file_path = os.path.join(temp_path,temp_files[1])
     prices_df = select_models(folder_dic, codes, file_path)
 
-    #Send to DB
+    # Send to DB
     insertGuide(conn, folder_dic)
     insertPriceVariations(conn, prices_df, folder_dic)
 
-    #Report
+    # Report
     print("Guide %(reference)s for month %(month_guide)s of %(year_guide)s was included" % folder_dic)
+    print("---------------------------------------------------------")
+
 
 
 # Create table of models vs monthly prices
