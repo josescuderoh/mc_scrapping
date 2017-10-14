@@ -83,7 +83,7 @@ def insertGuide(conn, dict_guide):
     #Send to database
     temp_cursor.execute(sql_str, dict_guide)
     conn.commit()
-    return "Guide migration finished."
+    print("Guide {} migration finished.".format(dict_guide['reference']))
 
 
 def get_variations_by_make(conn):
@@ -124,9 +124,12 @@ def insertPriceVariations(conn, d_frame, dict_guide):
                  select %(car_id)s, %(year_model)s, (select NOW()), (select NOW())
                  where not exists 
                  (select id from yearly_prices where car_id = %(car_id)s and year_model=%(year_model)s);"""
-    #Send to yearly_prices
+    # Send to yearly_prices
     temp_cursor.executemany(sql_str, yearly_prices)
+    # Count changes and commit
+    new_yearly_prices_count = temp_cursor.rowcount
     conn.commit()
+
     # Create list of dictionaries with required information
     dict_list = []
     for car_id, id_fasecolda in valid_tuples:
@@ -148,13 +151,21 @@ def insertPriceVariations(conn, d_frame, dict_guide):
     # Store yearly_prices ids in database
     sql_str = """insert into price_variations (yearly_price_id, market_price, max_price_percentage, min_price_percentage, 
                 med_price_percentage, good_price_percentage, max_level, min_level, created_at, updated_at, id_guide_pk)
-                values ((select id from yearly_prices where car_id=%(car_id)s and year_model=%(year_model)s), %(market_price)s, 
+                select (select id from yearly_prices where car_id=%(car_id)s and year_model=%(year_model)s), %(market_price)s, 
                 %(max_price_percentage)s, %(min_price_percentage)s, %(med_price_percentage)s, %(good_price_percentage)s, 
                 %(max_level)s, %(min_level)s, (select now()), (select now()), 
-                (select id from guides where reference=%(reference)s));"""
+                (select id from guides where reference=%(reference)s)
+                where not exists
+                (select id from price_variations where 
+                yearly_price_id = (select id from yearly_prices where car_id=%(car_id)s and year_model=%(year_model)s) 
+                and id_guide_pk=(select id from guides where reference=%(reference)s));"""
     temp_cursor.executemany(sql_str, dict_list)
+    # Count changes and commit
+    new_prices_count = temp_cursor.rowcount
     conn.commit()
-    return "Changes for guide {} have been submitted. {} new prices.".format(dict_guide['reference'], len(dict_list))
+    print("{} new yearly prices and {} new price variations of {} registers sent.".format(new_prices_count,
+                                                                                          new_yearly_prices_count,
+                                                                                          len(dict_list)))
 
 
 def collect_static_files(root, urls, paths):

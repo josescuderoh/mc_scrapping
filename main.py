@@ -108,7 +108,7 @@ for folder in folders:
     print("Guide %(reference)s for month %(month_guide)s of %(year_guide)s was included" % folder_dic)
 
 
-#Create table of models vs montly prices
+# Create table of models vs monthly prices
 cursor = conn.cursor()
 sql_start = """
 select distinct year_model,month_sold from monthly_prices 
