@@ -112,7 +112,6 @@ for folder in folders:
     print("---------------------------------------------------------")
 
 
-
 # Create table of models vs monthly prices
 cursor = conn.cursor()
 sql_start = """

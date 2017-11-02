@@ -248,31 +248,31 @@ def select_models(folder_dic, codes, file_path):
     # Read all ids from file
     all_prices = pd.read_table(file_path, header=0,sep="|", index_col=False,
                            dtype={'id_fasecolda': 'str'}, names = names)
+    all_prices = all_prices.set_index(['id_fasecolda'])
     # Get latest model_year
     max_model = max(all_prices.model_year)
     #Add right new prices to codes
     codes = codes.set_index(['id_fasecolda'])
     codes['price'] = 0
     codes['model_year'] = 0
-    #Read from prices dataframe
-    if max_model == folder_dic['year_guide']:
-        for id in codes.index:
-            #if codes.loc[id].um: Not filtering by last model in those months
-            # Filtering by last price different than zero
-            if all_prices.price[(all_prices['id_fasecolda']==id) & (all_prices['model_year'] == max_model-1)].item() > 0:
-                codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
-                                                            (all_prices['model_year'] == max_model)].item())
-                codes.set_value(id, 'model_year', max_model)
-    else:
-        for id in codes.index:
-            if codes.loc[id].um:
-                codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
-                                                            (all_prices['model_year'] == max_model)].item())
-                codes.set_value(id, 'model_year', max_model)
-            else:
-                codes.set_value(id, 'price', all_prices.price[(all_prices['id_fasecolda']==id) &
-                                                            (all_prices['model_year'] == folder_dic['year_guide'])].item())
-                codes.set_value(id, 'model_year', folder_dic['year_guide'])
+
+    #Set values only if codes are last model
+    codes.model_year = max_model
+    selected_um = codes.index[codes.um].values
+    for id in selected_um:
+        codes.set_value(id, 'price', all_prices.price[(all_prices.index == id) & (all_prices.model_year == max_model)])
+
+    if max_model != folder_dic['year_guide']:
+        #Build temporary dataframe with two last years
+        temp_df = pd.concat({'price_min': all_prices.price[(all_prices.model_year == folder_dic['year_guide'])],
+                             'price_max': all_prices.price[(all_prices.model_year == max_model)]}, axis=1, join='inner')
+        #Set values if codes are not last model only when prices in both years are the same
+        selected_nonum = [code for code in temp_df.index[temp_df.price_min == temp_df.price_max].values if code in codes.index]
+        #Iterate and add prices
+        for id in selected_nonum:
+            codes.set_value(id, 'price', all_prices.price[(all_prices.index == id) & (all_prices.model_year == max_model)])
+            codes.set_value(id, 'model_year', folder_dic['year_guide'])
+
     #Return df
     prices_df = codes.loc[:,['make', 'model_year','price']][codes['price']>0]
     return prices_df
