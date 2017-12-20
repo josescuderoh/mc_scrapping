@@ -9,8 +9,10 @@ Firefox must be installed on the server.
 
 The following structure of folders must be in place in order to properly store the raw files:
 
+```
 data
 |- docs
 |_ files
+```
 
-the paths dictionary points to these directories. 
+The paths dictionary points to these directories. 
