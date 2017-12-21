@@ -3,8 +3,6 @@ from helper import *
 import psycopg2
 # from collections import defaultdict
 
-# Function call to download and store raw static files
-
 # Root website
 root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
 
@@ -13,9 +11,10 @@ urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\G
         "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
 
 # Path to folder structure mentioned on README file --modify according to location--
-paths = {"docs": r"..\..\data\docs",
-         "files": r"..\..\data\files"}
+paths = {"docs": r"..\data\docs",
+         "files": r"..\data\files"}
 
+# Function call to download and store raw static files
 collect_static_files(root, urls, paths)
 
 # Data required for month information. These months are mapped to a calendar one month behind
@@ -63,10 +62,10 @@ include_manuf = ["SUZUKI","KIA","HYUNDAI","MITSUBISHI","BMW","HONDA","MAZDA",
 
 # Connect to database
 
-DB_NAME='mc_db'
-DB_USER='jescudero'
-DB_PASSWORD='654321+*'
-DB_HOST='localhost'
+DB_NAME= os.environ['DB_HOST']
+DB_USER=os.environ['DB_USER']
+DB_PASSWORD=os.environ['DB_PASSWORD']
+DB_HOST=os.environ['DB_NAME']
 
 conn_str = "dbname='"+DB_NAME+\
            "' user='"+DB_USER+\
