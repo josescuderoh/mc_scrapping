@@ -23,9 +23,9 @@ git clone $PROJECT_GIT_URL $PROJECT_BASE_PATH/mc_scraping
 mkdir -p $VIRTUALENV_BASE_PATH
 virtualenv -p python3 $VIRTUALENV_BASE_PATH/mc_scraping
 
-mkdir data
-mkdir data/files
-mkdir data/docs
+mkdir /home/ubuntu/data
+mkdir /home/ubuntu/data/files
+mkdir /home/ubuntu/data/docs
 
 source $VIRTUALENV_BASE_PATH/mc_scraping/bin/activate
 pip install -r $PROJECT_BASE_PATH/mc_scraping/requirements.txt

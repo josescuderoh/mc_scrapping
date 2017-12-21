@@ -11,8 +11,8 @@ urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\G
         "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
 
 # Path to folder structure mentioned on README file --modify according to location--
-paths = {"docs": r"..\data\docs",
-         "files": r"..\data\files"}
+paths = {"docs": r"..\..\data\docs",
+         "files": r"..\..\data\files"}
 
 # Function call to download and store raw static files
 collect_static_files(root, urls, paths)
