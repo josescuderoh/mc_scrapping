@@ -1,6 +1,6 @@
-# Fasecolda DBs Scrapper
+# Fasecolda DBs Scraper
 
-This scripts provide total functionality for scrapping data from the fasecolda website and updating
+This scripts provide total functionality for scraping data from the fasecolda website and updating
 the databases on Matchcar's platform with the required format.
 
 Firefox must be installed on the server.
@@ -76,7 +76,7 @@ Notes:
 * One constraint for yearly_price_id must be added to the price_variations table.
 
 
-3. About the scrapping algorithm : 
+3. About the scraping algorithm : 
 - Variations by make are now being redundantly retrieved from the database since there is no method for calculating real variations. One table could be created for this.
 - It is required to update the tables when existing values are being inserted. However, it was not possible due to indexes in the tables which slow down update statements.
 
