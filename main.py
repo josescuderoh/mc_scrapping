@@ -1,7 +1,7 @@
 # Imports
 from helper import *
 import psycopg2
-from collections import defaultdict
+# from collections import defaultdict
 
 # Function call to download and store raw static files
 
@@ -12,11 +12,11 @@ root = "http://fasecolda.colserauto.com/fasecolda.explorador/"
 urls = {"docs": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\Documentos",
         "files": r"Default.aspx?url=E:\WWWROOT\FASECOLDA\Fasecolda.Web\Archivos\Guias\GuiaValores_NuevoFormato"}
 
+# Path to folder structure mentioned on README file --modify according to location--
 paths = {"docs": r"..\..\data\docs",
          "files": r"..\..\data\files"}
 
 collect_static_files(root, urls, paths)
-
 
 # Data required for month information. These months are mapped to a calendar one month behind
 month_map = {'Enero':1,
@@ -45,7 +45,7 @@ month_sold_map = {'Enero':12,
               'Noviembre':10,
               'Diciembre':11}
 
-# Set filters
+# Set filters --given by FusePong--
 
 # Include only following classes
 classes = ['AUTOMOVIL','CAMIONETA', 'CAMIONETA PASAJ.','CAMPERO']
@@ -62,17 +62,41 @@ include_manuf = ["SUZUKI","KIA","HYUNDAI","MITSUBISHI","BMW","HONDA","MAZDA",
 "FOTON","HUMMER","LIFAN","TMD","ROVER","MASERATI","FERRARI","CHANGAN"]
 
 # Connect to database
+
+DB_NAME='mc_db'
+DB_USER='jescudero'
+DB_PASSWORD='654321+*'
+DB_HOST='localhost'
+
+conn_str = "dbname='"+DB_NAME+\
+           "' user='"+DB_USER+\
+           "' host='"+DB_HOST+\
+           "' password='"+DB_PASSWORD+"'"
+
 try:
-    conn = psycopg2.connect("dbname='mc_db' user='jescudero' host='localhost' password='654321+*'")
+    conn = psycopg2.connect(conn_str)
 except:
     print("Unable to connect to the database")
 
 # Read existing folders
 folders_path = os.path.join(os.getcwd(), paths['files'])
-folders = sorted(os.listdir(path= folders_path))
+folders = os.listdir(path= folders_path)
+
+# Read folders on the DB
+
+# Create cursor
+temp_cursor = conn.cursor()
+# Create sql string
+sql_str = """select reference from guides;"""
+# Send to database
+temp_cursor.execute(sql_str)
+existing_folders = [reg[0] for reg in temp_cursor.fetchall()]
+
+# Get folders not included
+req_folders = [fold for fold in folders if int(fold[0:3]) not in existing_folders]
 
 # Iterate over folders
-for folder in folders:
+for folder in req_folders:
     # Temporary path
     temp_path = os.path.join(folders_path,folder)
     # Extract temporary information from folder
@@ -81,7 +105,6 @@ for folder in folders:
                   'month_guide': month_map.get(folder.split(sep="_")[1]),
                   'month_sold': month_sold_map.get(folder.split(sep="_")[1]),
                   'year_guide': int(folder.split(sep="_")[2])}
-    print("--------------------------------")
     print("Started processing guide %(reference)s" % folder_dic)
 
     # List files in folder
@@ -109,63 +132,62 @@ for folder in folders:
 
     # Report
     print("Guide %(reference)s for month %(month_guide)s of %(year_guide)s was included" % folder_dic)
-    print("---------------------------------------------------------")
 
 
-# Create table of models vs monthly prices
-cursor = conn.cursor()
-sql_start = """
-select distinct year_model,month_sold from monthly_prices 
-inner join guides on monthly_prices.id_guide = guides.id_guide
-where guides.id_guide = (select min(id_guide) from guides);
-"""
-cursor.execute(sql_start)
-start = cursor.fetchall()[0]
-sql_end = """
-select distinct year_model,month_sold from monthly_prices 
-inner join guides on monthly_prices.id_guide = guides.id_guide
-where guides.id_guide = (select max(id_guide) from guides);
-"""
-cursor.execute(sql_end)
-end = cursor.fetchall()[0]
 
-#Iterate over table and build pandas dataframe
-year = 2008
-months = [7,8,9,10,11,12,1,2,3,4,5,6]
-dict_regs = defaultdict(dict)
-flag = False
-
-#Iterate over months
-while True:
-    for month in months:
-        #Obtain specific registers from db
-        temp_sql = """
-        select id_fasecolda, price, monthly_prices.id_guide from monthly_prices 
-        inner join guides on monthly_prices.id_guide = guides.id_guide 
-        where year_model="""+str(year)+""" and month_sold="""+str(month)+""";"""
-        cursor.execute(temp_sql)
-        #Obtain data
-        full_regs = cursor.fetchall()
-        if full_regs != []:
-            ids = [pair[0] for pair in full_regs]
-            regs = [pair[1] for pair in full_regs]
-            ref = np.unique([pair[2] for pair in full_regs])[0] if full_regs != [] else None
-            # Rearrange into data frame
-            full_regs_df = pd.DataFrame({'regs':regs}, index=ids)
-            #Update nested dictionaries with values for year-month
-            temp_key = str(ref)+ "-" +str(year) + "-" + str(month).zfill(2)
-            for index, row in full_regs_df.iterrows():
-                dict_regs[index][temp_key]= row.regs
-            # Report
-            print(temp_key+" updated")
-            if month == end[1] and year == end[0]:
-                flag = True
-                break
-    if flag==True:
-        break
-    #Update counter
-    year += 1
-
-monthly_prices_df =pd.DataFrame.from_dict(dict_regs,orient='index')
-monthly_prices_df.sort_index(axis=1, inplace=True)
-
+# # Create table of models vs monthly prices
+# cursor = conn.cursor()
+# sql_start = """
+# select distinct year_model,month_sold from monthly_prices
+# inner join guides on monthly_prices.id_guide = guides.id_guide
+# where guides.id_guide = (select min(id_guide) from guides);
+# """
+# cursor.execute(sql_start)
+# start = cursor.fetchall()[0]
+# sql_end = """
+# select distinct year_model,month_sold from monthly_prices
+# inner join guides on monthly_prices.id_guide = guides.id_guide
+# where guides.id_guide = (select max(id_guide) from guides);
+# """
+# cursor.execute(sql_end)
+# end = cursor.fetchall()[0]
+#
+# #Iterate over table and build pandas dataframe
+# year = 2008
+# months = [7,8,9,10,11,12,1,2,3,4,5,6]
+# dict_regs = defaultdict(dict)
+# flag = False
+#
+# #Iterate over months
+# while True:
+#     for month in months:
+#         #Obtain specific registers from db
+#         temp_sql = """
+#         select id_fasecolda, price, monthly_prices.id_guide from monthly_prices
+#         inner join guides on monthly_prices.id_guide = guides.id_guide
+#         where year_model="""+str(year)+""" and month_sold="""+str(month)+""";"""
+#         cursor.execute(temp_sql)
+#         #Obtain data
+#         full_regs = cursor.fetchall()
+#         if full_regs != []:
+#             ids = [pair[0] for pair in full_regs]
+#             regs = [pair[1] for pair in full_regs]
+#             ref = np.unique([pair[2] for pair in full_regs])[0] if full_regs != [] else None
+#             # Rearrange into data frame
+#             full_regs_df = pd.DataFrame({'regs':regs}, index=ids)
+#             #Update nested dictionaries with values for year-month
+#             temp_key = str(ref)+ "-" +str(year) + "-" + str(month).zfill(2)
+#             for index, row in full_regs_df.iterrows():
+#                 dict_regs[index][temp_key]= row.regs
+#             # Report
+#             print(temp_key+" updated")
+#             if month == end[1] and year == end[0]:
+#                 flag = True
+#                 break
+#     if flag==True:
+#         break
+#     #Update counter
+#     year += 1
+#
+# monthly_prices_df =pd.DataFrame.from_dict(dict_regs,orient='index')
+# monthly_prices_df.sort_index(axis=1, inplace=True)
